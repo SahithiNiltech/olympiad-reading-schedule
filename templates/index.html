@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reading Schedule</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+        }
+        h2 {
+            text-align: center;
+            margin-top: 2vh;
+        }
+        .table-container {
+            width: 95vw;
+            height: 70vh;
+            margin: 0 auto;
+            overflow-y: auto;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            background: rgba(255,255,255,0.7);
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            font-size: 1.25em;
+            background: rgba(255,255,255,0.85);
+            transition: box-shadow 0.5s;
+        }
+        table:hover {
+            box-shadow: 0 16px 48px 0 rgba(31, 38, 135, 0.3);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 16px;
+            text-align: center;
+            transition: background 0.3s;
+        }
+        th {
+            background: #f2f2f2;
+            font-size: 1.1em;
+            letter-spacing: 1px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: background 0.3s, transform 0.2s;
+        }
+        button:active {
+            transform: scale(0.97);
+        }
+        .done {
+            background-color: #218838;
+            color: white;
+        }
+        .not-done {
+            background-color: #ff4e50;
+            color: white;
+        }
+        .row-a {
+            background-color: #e6f7ff;
+            animation: fadeIn 1s;
+        }
+        .row-b {
+            background-color: #fffbe6;
+            animation: fadeIn 1s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @media (max-width: 600px) {
+            html, body {
+                padding: 0;
+                margin: 0;
+            }
+            h2 {
+                font-size: 1.1em;
+                padding: 10px 0;
+            }
+            .table-container {
+                width: 100vw !important;
+                max-height: 60vh !important;
+                overflow-x: auto;
+                padding: 0;
+            }
+            table {
+                width: 100vw !important;
+                font-size: 0.9em;
+            }
+            th, td {
+                padding: 6px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h2 style="text-align:center; margin-top:2vh;">Olympiad Reading Schedule (Sep 21 – Nov 31)</h2>
+    <div style="width: 95vw; margin: 0 auto; height: 70vh; overflow-y: auto;">
+    <table style="width: 100%;">
+        <thead>
+            <tr>
+                <th style="position: sticky; top: 0; z-index: 2; background: #f2f2f2;">Date</th>
+                <th style="position: sticky; top: 0; z-index: 2; background: #f2f2f2;">Page</th>
+                <th style="position: sticky; top: 0; z-index: 2; background: #f2f2f2;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in schedule %}
+            {% set key = item.date ~ "_" ~ item.page %}
+            {% set row_class = 'row-a' if (loop.index0 // 3) % 2 == 0 else 'row-b' %}
+            <tr class="{{ row_class }}">
+                <td>{{ item.date|format_date }}</td>
+                <td>{{ item.page }}</td>
+                <td>
+                    <button 
+                        class="{{ 'done' if toggle_data.get(key) else 'not-done' }}"
+                        {% if toggle_data.get(key) %}disabled{% else %}onclick="toggleStatus('{{ item.date }}', '{{ item.page }}', this)"{% endif %}>
+                        {{ 'Done' if toggle_data.get(key) else 'Not Done' }}
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>s
+    </div>
+
+    <script>
+        function showPopup(message) {
+            let popup = document.createElement('div');
+            popup.innerHTML = `🎉 <b>${message}</b> 🎊 <br>👏🌟`;
+            popup.style.position = 'fixed';
+            popup.style.left = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+            popup.style.background = 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)';
+            popup.style.color = '#222';
+            popup.style.padding = '22px 8vw';
+            popup.style.borderRadius = '18px';
+            popup.style.fontSize = '1.6em';
+            popup.style.boxShadow = '0 4px 24px rgba(0,0,0,0.18)';
+            popup.style.zIndex = '99999';
+            popup.style.maxWidth = '95vw';
+            popup.style.textAlign = 'center';
+            popup.style.wordBreak = 'break-word';
+            popup.style.fontWeight = 'bold';
+            popup.style.border = '2px solid #fcb69f';
+            // Center vertically for mobile
+            if (window.innerWidth <= 600) {
+                popup.style.top = '50%';
+                popup.style.padding = '28px 2vw';
+                popup.style.fontSize = '2em';
+                popup.style.maxWidth = '98vw';
+            } else {
+                popup.style.top = '20vh';
+            }
+            document.body.appendChild(popup);
+            setTimeout(() => {
+                popup.remove();
+            }, 3000);
+        }
+
+        function toggleStatus(date, page, btn) {
+            fetch("/toggle", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({date: date, page: page})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.toggled) {
+                    btn.className = "done";
+                    btn.textContent = "Done";
+                    showPopup("Well Done Sahasra! Keep doing !");
+                } else {
+                    btn.className = "not-done";
+                    btn.textContent = "Not Done";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
