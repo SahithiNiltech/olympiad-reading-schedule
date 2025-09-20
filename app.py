@@ -1,27 +1,51 @@
-
 from flask import Flask, render_template, request, jsonify
 import json
 import os
 from datetime import date, timedelta
+import sqlite3
 
 app = Flask(__name__)
 
 
-DATA_FILE = "toggle_data.json"
+# SQLite setup
+DB_FILE = "toggle_data.db"
+def get_db():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
+# Initialize table if not exists
+def init_db():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS toggles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            page INTEGER NOT NULL,
+            status INTEGER NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+init_db()
+
+def get_toggle_data():
+    conn = get_db()
+    rows = conn.execute("SELECT date, page, status FROM toggles").fetchall()
+    conn.close()
+    return {f"{row['date']}_{row['page']}": bool(row['status']) for row in rows}
+
+def set_toggle(date, page, status):
+    conn = get_db()
+    result = conn.execute("UPDATE toggles SET status=? WHERE date=? AND page=?", (int(status), date, page))
+    if result.rowcount == 0:
+        conn.execute("INSERT INTO toggles (date, page, status) VALUES (?, ?, ?)", (date, page, int(status)))
+    conn.commit()
+    conn.close()
 
 @app.route("/data")
 def data():
-    with open(DATA_FILE, "r") as f:
-        data = json.load(f)
-    return jsonify(data)
-
-# Load or initialize toggle data
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r") as f:
-        toggle_data = json.load(f)
-else:
-    toggle_data = {}
+    return jsonify(get_toggle_data())
 
 # Custom Jinja2 filter to format date strings
 from datetime import datetime
@@ -61,18 +85,19 @@ schedule = generate_schedule()
 
 @app.route("/")
 def index():
+    toggle_data = get_toggle_data()
     return render_template("index.html", schedule=schedule, toggle_data=toggle_data)
 
 @app.route("/toggle", methods=["POST"])
 def toggle():
     data = request.json
-    key = f"{data['date']}_{data['page']}"
-    toggle_data[key] = not toggle_data.get(key, False)
-
-    with open(DATA_FILE, "w") as f:
-        json.dump(toggle_data, f)
-
-    return jsonify({"status": "ok", "toggled": toggle_data[key]})
+    date = data['date']
+    page = int(data['page'])
+    toggle_data = get_toggle_data()
+    key = f"{date}_{page}"
+    toggled = not toggle_data.get(key, False)
+    set_toggle(date, page, toggled)
+    return jsonify({"status": "ok", "toggled": toggled})
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=9999)
