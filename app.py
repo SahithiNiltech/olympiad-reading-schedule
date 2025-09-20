@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, request, jsonify
 import json
 import os
@@ -7,6 +8,13 @@ app = Flask(__name__)
 
 
 DATA_FILE = "toggle_data.json"
+
+
+@app.route("/data")
+def data():
+    with open(DATA_FILE, "r") as f:
+        data = json.load(f)
+    return jsonify(data)
 
 # Load or initialize toggle data
 if os.path.exists(DATA_FILE):
